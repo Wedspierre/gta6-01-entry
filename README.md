@@ -38,3 +38,5 @@ P missions/phone · M mute · Esc pause · mouse aim, click to shoot.
 requests, no build step — static files under `game/`, three.js vendored.
 
 **Screenshots:** staged with `?shot=cover|drive|mission|city` (see `shots.json`).
+
+**Entry version:** VELAMAR v2.
