@@ -1,7 +1,7 @@
-// Velamar — the entrypoint. A Node 22 program, standard library only: it copies
-// this repository's game/ and screenshots/ into the output directory and writes
-// the dossier with the vendored make.fun library, exactly as the kit asks.
-// Outside the grader, MAKEFUN_OUTPUT_DIR stands in for /output:
+// VELAMAR entry program (Node 22, standard library only).
+// Copies the playable game and its screenshots into the output directory and
+// writes the dossier with the vendored make.fun library, exactly as the kit
+// documents. Outside the grader, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
 import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -20,10 +20,9 @@ if (existsSync(join(here, 'screenshots'))) {
 }
 
 // The scorer's own caps (reference/gate.json): only text_max_bytes shapes the
-// bytes; the rest refuse an entry the scorer would refuse — more than 4
-// screenshots or one over 256 KiB, more than 993 files in game/ or 48 MiB of
-// game files in all, or a path under game/ over 1000 bytes. game/ counts beside
-// /output's own 1000-entry cap, its screenshots/ and dossier.json.
+// bytes; the others refuse an entry the scorer would refuse (more than 4
+// screenshots or one over 256 KiB; more than 993 files in game/ or 48 MiB of
+// game files in all, or a path under game/ over 1000 bytes).
 writeFileSync(
   join(out, 'dossier.json'),
   buildDossier(out, {
