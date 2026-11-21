@@ -1,494 +1,283 @@
-// Velamar — the story. Fourteen story jobs across three acts, plus side work:
-// taxi fares, three street-race circuits, five stunt jumps, twenty hidden
-// packages and a rampage. Dario Voss comes home to Velamar; Selma Reyes,
-// Mara Quinn and Tico Alvarez help him take the city back from Viktor Kross,
-// the Harbormaster who owns the docks. All names, places and lines are original.
+// The 14-mission story campaign. Each mission is a list of steps; the engine
+// below advances steps as the player reaches markers, talks, defends, races,
+// escapes or smashes roadblocks. Mission state lives in S.missionState.
 import * as THREE from 'three';
-import { makeRng } from './rng.js';
+import { S, MISSIONS } from './state.js';
+import { Dispatch } from './dispatch.js';
+import { Police } from './police.js';
+import { AudioSys } from './audio.js';
+import { makePedestrian, buildPersonMesh } from './people.js';
+import { makeRng, range } from './rng.js';
+import { CAR_MODELS, makeCar } from './vehicles.js';
 
-export const STORY = [
-  { id: 1, act: 'ACT 1 — HOMECOMING', title: 'Welcome Back', giver: 'Selma Reyes',
-    briefing: 'Dario. Three years gone and the city forgot you. Get to the Marina safehouse. Keys are under the mat. Do not get cute on the way.',
-    steps: [{ type: 'goto', x: 40, z: 250, r: 10, label: 'Reach the Marina safehouse' }],
-    reward: 300, respect: 10 },
-  { id: 2, act: 'ACT 1 — HOMECOMING', title: 'Wheels', giver: 'Selma Reyes',
-    briefing: 'You need wheels that are not a bus. Jack a coupe anywhere in the city and bring it to the garage on The Strip. Try not to scratch it.',
-    steps: [
-      { type: 'steal', kind: 'coupe', label: 'Steal a coupe' },
-      { type: 'goto', x: 300, z: 0, r: 12, label: 'Deliver the coupe to the garage', inCar: true },
-    ],
-    reward: 900, respect: 15 },
-  { id: 3, act: 'ACT 1 — HOMECOMING', title: 'First Fare', giver: 'Tico Alvarez',
-    briefing: 'Cab work pays the rent and nobody looks twice at a cab. Two fares, both in a hurry. Keep the meter running and the doors shut.',
-    steps: [
-      { type: 'deliver', x: -200, z: -100, r: 10, timer: 75, label: 'Drop fare 1 at Old Port' },
-      { type: 'deliver', x: 200, z: -200, r: 10, timer: 75, label: 'Drop fare 2 at North Hills' },
-    ],
-    reward: 700, respect: 12 },
-  { id: 4, act: 'ACT 1 — HOMECOMING', title: 'The Drop', giver: 'Selma Reyes',
-    briefing: 'A package for the Old Port crew. The VCPD sniffed the route, so expect a tail. Lose them, make the drop, walk away clean.',
-    steps: [{ type: 'deliver', x: -300, z: 100, r: 10, timer: 90, label: 'Deliver the package to Old Port', heat: 1 }],
-    reward: 1200, respect: 18 },
-  { id: 5, act: 'ACT 2 — THE CREW', title: "Mara's Signal", giver: 'Mara Quinn',
-    briefing: 'I planted three data drops around Downtown. Grab them all before Kross sweeps the grid. Ninety seconds. Move.',
-    steps: [{ type: 'collect', spots: [[-100, -100], [100, 100], [0, -200]], r: 8, timer: 90, label: 'Collect the 3 data drops' }],
-    reward: 1600, respect: 20 },
-  { id: 6, act: 'ACT 2 — THE CREW', title: 'Street Kings', giver: 'Tico Alvarez',
-    briefing: 'The Strip runs a midnight circuit and the Sharks think they own it. Beat their best time through all eight gates and the street is ours.',
-    steps: [{ type: 'race', points: [[200, 100], [300, 100], [300, 200], [200, 200], [200, 300], [300, 300], [350, 200], [300, 0]], timer: 110, label: 'Race the Strip circuit' }],
-    reward: 2200, respect: 25 },
-  { id: 7, act: 'ACT 2 — THE CREW', title: 'Harbor Lights', giver: 'Selma Reyes',
-    briefing: 'Kross stores his ledger in a dockside crate. His guards are not paid to be brave. Clear the pier, take the crate, get out.',
-    steps: [
-      { type: 'kill', x: -350, z: 250, count: 5, label: 'Clear the dock guards' },
-      { type: 'collect', spots: [[-350, 250]], r: 8, label: 'Take the ledger crate' },
-    ],
-    reward: 3000, respect: 30 },
-  { id: 8, act: 'ACT 2 — THE CREW', title: 'Heat Wave', giver: 'Mara Quinn',
-    briefing: 'I tripped a citywide alarm by accident. On purpose, maybe. The VCPD is coming in hot — survive ninety seconds at three stars.',
-    steps: [{ type: 'survive', seconds: 90, heat: 3, label: 'Survive the VCPD response' }],
-    reward: 2600, respect: 28 },
-  { id: 9, act: 'ACT 2 — THE CREW', title: 'Protect the Fixer', giver: 'Selma Reyes',
-    briefing: 'The Sharks found my office. Six of them, outside, right now. Dario — do what you do.',
-    steps: [{ type: 'kill', x: -40, z: 60, count: 6, label: 'Defend Selma\'s office' }],
-    reward: 3400, respect: 32 },
-  { id: 10, act: 'ACT 3 — KING TIDE', title: 'The Setup', giver: 'Tico Alvarez',
-    briefing: 'The big one needs a van, a quiet warehouse and no questions. Jack a van, park it at the warehouse on the docks.',
-    steps: [
-      { type: 'steal', kind: 'van', label: 'Steal a van' },
-      { type: 'goto', x: -300, z: 300, r: 12, label: 'Park the van at the warehouse', inCar: true },
-    ],
-    reward: 2400, respect: 22 },
-  { id: 11, act: 'ACT 3 — KING TIDE', title: 'Air One', giver: 'Mara Quinn',
-    briefing: 'Air One is over Downtown and every cruiser in the city is rolling. Seventy-five seconds of pure getaway. Show them what a Voss can drive.',
-    steps: [{ type: 'survive', seconds: 75, heat: 3, label: 'Outrun Air One' }],
-    reward: 4200, respect: 35 },
-  { id: 12, act: 'ACT 3 — KING TIDE', title: 'Roadblock Run', giver: 'Selma Reyes',
-    briefing: 'Four gates across the city, four stars on your head, roadblocks on every avenue. Thread them all. Kross is watching.',
-    steps: [{ type: 'race', points: [[-200, -200], [0, -300], [200, -100], [0, 200]], timer: 120, heat: 4, label: 'Run the four roadblock gates' }],
-    reward: 5600, respect: 40 },
-  { id: 13, act: 'ACT 3 — KING TIDE', title: 'The Vault', giver: 'Selma Reyes',
-    briefing: 'Bank of Velamar. Eight guards, four vault bags, one very loud alarm. Take it all and meet Tico at the Marina.',
-    steps: [
-      { type: 'kill', x: 0, z: -100, count: 8, label: 'Clear the bank floor' },
-      { type: 'collect', spots: [[-20, -120], [20, -120], [-20, -80], [20, -80]], r: 8, label: 'Grab the 4 vault bags' },
-      { type: 'goto', x: 40, z: 250, r: 10, label: 'Escape to the Marina safehouse' },
-    ],
-    reward: 12000, respect: 60 },
-  { id: 14, act: 'ACT 3 — KING TIDE', title: 'King of Velamar', giver: 'Mara Quinn',
-    briefing: 'Five stars. The whole city. Kross on the pier with his crew. Race to the pier, stand your ground, and take Velamar back.',
-    steps: [
-      { type: 'race', points: [[100, 300], [-50, 350], [-150, 420]], timer: 90, heat: 5, label: 'Race to the pier' },
-      { type: 'kill', x: -150, z: 430, count: 6, label: 'Take the pier from Kross\'s crew' },
-      { type: 'survive', seconds: 45, heat: 5, label: 'Hold the pier' },
-    ],
-    reward: 15000, respect: 100 },
-];
+export const Missions = {
+  scene: null,
+  beacon: null,
+  npcs: [],
+  enemies: [],
+  raceCheckpoints: [],
+  escortTruck: null,
+  stepTimer: 0,
+  waitTimer: 0,
 
-export const RACES = [
-  { name: 'Strip Circuit', points: [[200, 100], [300, 100], [300, 200], [200, 200], [200, 300], [300, 300], [350, 200], [300, 0]], start: [200, 100], par: 110 },
-  { name: 'Downtown Loop', points: [[-100, -100], [100, -100], [100, 100], [-100, 100], [-100, -200], [0, -200]], start: [-100, -100], par: 95 },
-  { name: 'Beachfront Sprint', points: [[-300, 350], [0, 350], [300, 350], [350, 200], [350, 0]], start: [-300, 350], par: 85 },
-];
-
-export const JUMP_SPOTS = [
-  { x: -150, z: 300, dir: 0 }, { x: 250, z: -100, dir: 1 },
-  { x: 0, z: 350, dir: 0 }, { x: -300, z: -200, dir: 1 }, { x: 350, z: 250, dir: 0 },
-];
-
-export const PACKAGE_SPOTS = [
-  [-420, -420], [-320, -120], [-220, 220], [-120, -320], [-20, 20], [80, -220],
-  [180, 120], [280, -320], [380, 220], [420, -20], [-380, 320], [-180, 380],
-  [120, 380], [220, -20], [-60, -420], [320, 320], [-420, 20], [40, -380],
-  [420, 380], [-280, -380],
-];
-
-export const RANKS = [
-  { at: 0, name: 'Street Punk' }, { at: 60, name: 'Hustler' },
-  { at: 150, name: 'Wheelman' }, { at: 280, name: 'Shot Caller' },
-  { at: 450, name: 'King of Velamar' },
-];
-
-export function rankFor(respect) {
-  let r = RANKS[0];
-  for (const rank of RANKS) if (respect >= rank.at) r = rank;
-  return r.name;
-}
-
-function makeBeacon() {
-  const g = new THREE.Group();
-  const beam = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.6, 2.4, 60, 10, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0xffd23a, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false }),
-  );
-  beam.position.y = 30;
-  g.add(beam);
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(3.4, 0.28, 8, 28),
-    new THREE.MeshBasicMaterial({ color: 0xffd23a }),
-  );
-  ring.rotation.x = Math.PI / 2;
-  ring.position.y = 0.4;
-  g.add(ring);
-  const dot = new THREE.Mesh(
-    new THREE.SphereGeometry(0.7, 10, 8),
-    new THREE.MeshBasicMaterial({ color: 0xffd23a }),
-  );
-  dot.position.y = 1;
-  g.add(dot);
-  g.visible = false;
-  return g;
-}
-
-function makePickup(color) {
-  const m = new THREE.Mesh(
-    new THREE.BoxGeometry(1.1, 1.1, 1.1),
-    new THREE.MeshBasicMaterial({ color }),
-  );
-  m.rotation.y = Math.PI / 4;
-  return m;
-}
-
-export class MissionRunner {
-  constructor(scene) {
+  init(scene, beacon) {
     this.scene = scene;
-    this.beacon = makeBeacon();
-    scene.add(this.beacon);
-    this.active = null; // { def, stepIndex, timer, kills, collected, raceIndex }
-    this.completed = new Set();
-    this.taxi = null;
-    this.race = null;
-    this.rampage = null;
-    this.packages = [];
-    this.packageSpots = PACKAGE_SPOTS.map(([x, z]) => ({ x, z, taken: false, mesh: null }));
-    this.jumps = [];
-    this.jumpCooldown = 0;
-    this.pickups = [];
-    this.rng = makeRng(31337);
-  }
+    this.beacon = beacon;
+    this.npcs = [];
+    this.enemies = [];
+  },
 
-  buildWorld() {
-    // Hidden packages glow around the city.
-    for (const p of this.packageSpots) {
-      const m = makePickup(0x39d0c2);
-      m.position.set(p.x, 1.2, p.z);
-      this.scene.add(m);
-      p.mesh = m;
-    }
-    // Stunt ramps: wedges the player can launch off.
-    for (const j of JUMP_SPOTS) {
-      const ramp = new THREE.Mesh(
-        new THREE.BoxGeometry(7, 1, 12),
-        new THREE.MeshLambertMaterial({ color: 0xe8a13a }),
-      );
-      ramp.position.set(j.x, 1.1, j.z);
-      ramp.rotation.z = j.dir ? 0 : 0.35;
-      ramp.rotation.x = j.dir ? -0.35 : 0;
-      ramp.castShadow = true;
-      this.scene.add(ramp);
-      this.jumps.push({ ...j, mesh: ramp });
-    }
-  }
-
-  startMission(index, ctx) {
-    const def = STORY[index];
-    if (!def) return false;
-    this.active = { def, stepIndex: 0, timer: 0, kills: 0, collected: 0, raceIndex: 0, spawned: false };
-    ctx.hud.showPhone(def.giver, def.briefing);
-    ctx.hud.banner(`${def.act} — ${def.title}`, 'New mission');
-    ctx.audio.phone();
-    this.enterStep(ctx);
-    return true;
-  }
-
-  enterStep(ctx) {
-    const st = this.currentStep();
-    if (!st) return;
-    const a = this.active;
-    a.timer = st.timer || 0;
-    a.raceIndex = 0;
-    a.collected = 0;
-    a.spawned = false;
-    if (st.heat !== undefined) ctx.police.setWanted(st.heat);
-    if (st.type === 'kill') {
-      // Spawn the crew on the nearest road so they are visible and reachable,
-      // never inside a building.
-      const road = ctx.city.nearestRoad(st.x, st.z);
-      ctx.enemies.spawn(road.x, road.z, st.count, st.count >= 8 ? 80 : 60);
-      a.spawned = true;
-    }
-    if (st.type === 'collect') {
-      this.clearPickups();
-      for (const [x, z] of st.spots) {
-        const m = makePickup(0xffd23a);
-        m.position.set(x, 1.2, z);
-        this.scene.add(m);
-        this.pickups.push(m);
-      }
-    }
-    if (st.type === 'race') {
-      a.raceIndex = 0;
-    }
-    this.updateBeacon(ctx);
-  }
-
-  clearPickups() {
-    for (const m of this.pickups) this.scene.remove(m);
-    this.pickups = [];
-  }
-
+  current() { return MISSIONS[S.missionIndex] ?? null; },
   currentStep() {
-    if (!this.active) return null;
-    return this.active.def.steps[this.active.stepIndex] || null;
-  }
+    const m = this.current();
+    return m ? m.steps[S.missionStep] : null;
+  },
 
+  startMission(index) {
+    const m = MISSIONS[index];
+    if (!m) return;
+    S.missionIndex = index;
+    S.missionStep = 0;
+    S.missionState = { kills: 0, smashed: 0, checkpoints: 0, escorted: 0 };
+    this.clearActors();
+    this.say(m.name, m.intro);
+    Dispatch.say(`Dispatch: new job on the board — "${m.name}", from ${m.giver}.`);
+    this.showMarker();
+    AudioSys.dispatchBeep();
+  },
+
+  say(title, text) {
+    if (window.__velamarToast) window.__velamarToast(title, text);
+  },
+
+  // Where the current step points.
   stepTarget() {
-    const st = this.currentStep();
-    if (!st) return null;
-    const a = this.active;
-    if (st.type === 'race') return st.points[a.raceIndex];
-    if (st.type === 'collect' && st.spots[a.collected]) return st.spots[a.collected];
-    if (st.type === 'goto' || st.type === 'deliver' || st.type === 'kill') return [st.x, st.z];
+    const step = this.currentStep();
+    if (!step) return null;
+    if (step.kind === 'race' || step.kind === 'escort') {
+      const cp = this.raceCheckpoints[S.missionState.checkpoints];
+      if (cp) return { x: cp.x, z: cp.z };
+    }
+    if (step.x !== undefined) return { x: step.x, z: step.z };
+    if (this.escortTruck) return { x: this.escortTruck.pos.x, z: this.escortTruck.pos.z };
     return null;
-  }
+  },
 
-  updateBeacon(ctx) {
+  showMarker() {
     const t = this.stepTarget();
-    if (!t) { this.beacon.visible = false; return; }
-    this.beacon.visible = true;
-    this.beacon.position.set(t[0], 0, t[1]);
-  }
+    if (t && this.beacon) {
+      this.beacon.position.set(t.x, 0, t.z);
+      this.beacon.visible = true;
+    } else if (this.beacon) {
+      this.beacon.visible = false;
+    }
+  },
 
-  objectiveText(ctx) {
-    if (this.race) return `${this.race.def.name} — gate ${this.race.index + 1}/${this.race.def.points.length} — ${Math.ceil(this.race.timer)}s`;
-    if (this.taxi) return `Taxi fare — drop the passenger (${Math.ceil(this.taxi.timer)}s)`;
-    if (this.rampage) return `RAMPAGE — wreck ${this.rampage.left} more vehicles (${Math.ceil(this.rampage.timer)}s)`;
-    if (!this.active) return null;
-    const st = this.currentStep();
-    if (!st) return null;
-    let label = st.label;
-    if (st.type === 'kill') label += ` — ${this.active.kills}/${st.count}`;
-    if (st.type === 'collect') label += ` — ${this.active.collected}/${st.spots.length}`;
-    if (st.type === 'race') label += ` — gate ${this.active.raceIndex + 1}/${st.points.length}`;
-    if (st.type === 'survive') label += ` — ${Math.ceil(this.active.timer)}s`;
-    if (st.timer) label += ` — ${Math.ceil(this.active.timer)}s`;
-    return label;
-  }
+  hideMarker() { if (this.beacon) this.beacon.visible = false; },
 
-  fail(ctx, reason) {
-    ctx.audio.missionFail();
-    ctx.hud.banner('MISSION FAILED', reason);
-    ctx.enemies.clear();
-    this.clearPickups();
-    this.active = null;
-    this.beacon.visible = false;
-    ctx.police.setWanted(0);
-  }
+  clearActors() {
+    for (const n of this.npcs) this.scene.remove(n.mesh);
+    for (const e of this.enemies) this.scene.remove(e.mesh);
+    if (this.escortTruck) { this.scene.remove(this.escortTruck.mesh); this.escortTruck = null; }
+    this.npcs = [];
+    this.enemies = [];
+    this.raceCheckpoints = [];
+  },
 
-  completeStep(ctx) {
-    const a = this.active;
-    a.stepIndex += 1;
-    if (a.stepIndex >= a.def.steps.length) {
-      this.completeMission(ctx);
+  spawnEnemy(x, z) {
+    const rng = makeRng((Math.random() * 1e9) | 0);
+    const e = makePedestrian(this.scene, rng, x, z, { shirt: 0x1a1a1a, role: 'enemy' });
+    e.state = 'chase';
+    e.speed = 4.2;
+    e.health = 60;
+    // Give them a visible weapon: a dark box in the hand.
+    const gun = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.55),
+      new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4 }));
+    gun.position.set(0.42, 1.05, 0.25);
+    e.mesh.add(gun);
+    this.enemies.push(e);
+    return e;
+  },
+
+  spawnDefenders(count, cx, cz) {
+    const rng = makeRng((Math.random() * 1e9) | 0);
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2;
+      this.spawnEnemy(cx + Math.sin(a) * 22, cz + Math.cos(a) * 22);
+    }
+  },
+
+  spawnRaceCheckpoints(step) {
+    this.raceCheckpoints = [];
+    const n = step.laps || 3;
+    const cx = step.x, cz = step.z;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      this.raceCheckpoints.push({ x: cx + Math.sin(a) * 110, z: cz + Math.cos(a) * 110, done: false });
+    }
+    S.missionState.checkpoints = 0;
+  },
+
+  spawnEscortTruck(x, z) {
+    const model = CAR_MODELS.find((m) => m.name === 'Bay Van');
+    const truck = makeCar(this.scene, model, x, z, 0, { traffic: false });
+    truck.targetSpeed = 12;
+    this.escortTruck = truck;
+    return truck;
+  },
+
+  // Step entry hooks.
+  enterStep() {
+    const step = this.currentStep();
+    if (!step) return;
+    if (step.kind === 'race') this.spawnRaceCheckpoints(step);
+    if (step.kind === 'defend') this.spawnDefenders(step.count, window.__velamarPlayerPos?.x ?? 0, window.__velamarPlayerPos?.z ?? 0);
+    if (step.kind === 'escort') this.spawnEscortTruck(step.x, step.z);
+    if (step.kind === 'wait') this.waitTimer = step.seconds;
+    if (step.kind === 'talk') this.spawnTalkNpc(step.x, step.z);
+    if (step.kind === 'fly') this.say('Air One', 'The helicopter is on the pad. Get in and fly north.');
+    this.showMarker();
+  },
+
+  spawnTalkNpc(x, z) {
+    const rng = makeRng(42);
+    const npc = makePedestrian(this.scene, rng, x + 3, z + 2, { name: 'Mara Voss', role: 'npc', shirt: 0x8f2ad8 });
+    npc.state = 'idle';
+    this.npcs.push(npc);
+    return npc;
+  },
+
+  advanceStep() {
+    const m = this.current();
+    if (!m) return;
+    S.missionStep++;
+    AudioSys.pickup();
+    if (S.missionStep >= m.steps.length) {
+      this.completeMission();
     } else {
-      ctx.audio.pickup();
-      this.enterStep(ctx);
+      this.enterStep();
     }
-  }
+  },
 
-  completeMission(ctx) {
-    const def = this.active.def;
-    ctx.addCash(def.reward);
-    ctx.addRespect(def.respect);
-    ctx.audio.missionDone();
-    ctx.hud.banner('MISSION PASSED', `${def.title} — $${def.reward.toLocaleString()} + ${def.respect} respect`);
-    ctx.hud.showPhone(def.giver, 'Clean work. Next job is on the board when you are ready.');
-    this.completed.add(def.id);
-    ctx.saveGame();
-    this.active = null;
-    this.beacon.visible = false;
-    ctx.enemies.clear();
-    this.clearPickups();
-  }
+  completeMission() {
+    const m = this.current();
+    S.cash += m.reward;
+    S.respect += m.respect;
+    S.missionDone.push(m.id);
+    this.say('MISSION COMPLETE', `${m.name} — $${m.reward}  •  +${m.respect} respect`);
+    AudioSys.missionComplete();
+    Dispatch.say(`Dispatch: "${m.name}" closed out. ${m.giver} sends thanks — and $${m.reward}.`);
+    this.clearActors();
+    this.hideMarker();
+    if (S.missionIndex + 1 < MISSIONS.length) {
+      S.missionIndex++;
+      S.missionStep = 0;
+      S.missionState = {};
+      setTimeout(() => this.startMission(S.missionIndex), 2500);
+    } else {
+      this.say('KING OF VELAMAR', 'You own this city now. Free roam — the bay is yours.');
+      S.missionIndex = MISSIONS.length;
+    }
+  },
 
-  update(dt, ctx) {
-    const pos = ctx.playerCar ? ctx.playerCar.pos : ctx.player.pos;
-    // Hidden packages: spin, bob, collect on touch.
-    for (const p of this.packageSpots) {
-      if (p.taken) continue;
-      p.mesh.rotation.y += dt * 2;
-      p.mesh.position.y = 1.2 + Math.sin(performance.now() * 0.002 + p.x) * 0.25;
-      const d = Math.hypot(p.mesh.position.x - pos.x, p.mesh.position.z - pos.z);
-      if (d < 2.2) {
-        p.taken = true;
-        this.scene.remove(p.mesh);
-        ctx.addCash(250);
-        ctx.audio.pickup();
-        ctx.hud.toast('Hidden package — $250');
+  failMission(reason) {
+    this.say('MISSION FAILED', reason);
+    AudioSys.missionFail();
+    this.clearActors();
+    S.missionStep = 0;
+    S.missionState = {};
+    setTimeout(() => this.startMission(S.missionIndex), 2000);
+  },
+
+  // Per-frame mission logic. Returns nothing; uses window hooks set by main.js.
+  update(dt, api) {
+    const m = this.current();
+    if (!m || S.phase !== 'playing') return;
+    const step = this.currentStep();
+    if (!step) return;
+    const p = api.playerPos();
+    const inCar = api.inCar();
+    const speed = api.speed();
+
+    if (step.kind === 'goto' || step.kind === 'talk' || step.kind === 'park') {
+      const d = Math.hypot(p.x - step.x, p.z - step.z);
+      if (step.kind === 'talk') {
+        if (d < 4 && api.pressedE()) { this.advanceStep(); }
+      } else if (step.kind === 'park') {
+        if (d < 10 && inCar && Math.abs(speed) < 2) this.advanceStep();
+      } else if (d < 9) {
+        if (step.inCar && !inCar) {
+          if (window.__velamarToast) window.__velamarToast('NEED A CAR', 'This step needs a car — steal one (F).');
+        } else this.advanceStep();
       }
-    }
-    for (const m of this.pickups) {
-      m.rotation.y += dt * 3;
-      m.position.y = 1.2 + Math.sin(performance.now() * 0.003) * 0.2;
-    }
-    // Stunt jumps: launching a car off a ramp scores.
-    this.jumpCooldown -= dt;
-    if (ctx.playerCar && this.jumpCooldown <= 0) {
-      for (const j of this.jumps) {
-        const d = Math.hypot(j.x - ctx.playerCar.pos.x, j.z - ctx.playerCar.pos.z);
-        if (d < 6 && Math.abs(ctx.playerCar.speed) > 26) {
-          this.jumpCooldown = 4;
-          ctx.addCash(400);
-          ctx.addRespect(3);
-          ctx.audio.pickup();
-          ctx.hud.toast('STUNT JUMP — $400');
-          break;
-        }
-      }
-    }
-
-    // Taxi fares.
-    if (this.taxi) {
-      this.taxi.timer -= dt;
-      const d = Math.hypot(this.taxi.x - pos.x, this.taxi.z - pos.z);
+    } else if (step.kind === 'steal') {
+      if (inCar) this.advanceStep();
+    } else if (step.kind === 'wait') {
+      const t = this.stepTarget();
+      const d = t ? Math.hypot(p.x - t.x, p.z - t.z) : 999;
       if (d < 10) {
-        const fare = this.taxi.fare;
-        ctx.addCash(fare);
-        ctx.addRespect(2);
-        ctx.audio.pickup();
-        ctx.hud.toast(`Fare complete — $${fare}`);
-        this.taxi = null;
-        this.beacon.visible = false;
-      } else if (this.taxi.timer <= 0) {
-        ctx.hud.toast('Fare missed — passenger walked off');
-        this.taxi = null;
-        this.beacon.visible = false;
+        this.waitTimer -= dt;
+        if (this.waitTimer <= 0) this.advanceStep();
+      }
+    } else if (step.kind === 'defend') {
+      if (S.missionState.kills >= step.count) this.advanceStep();
+    } else if (step.kind === 'escape') {
+      if (S.wanted === 0) this.advanceStep();
+    } else if (step.kind === 'race') {
+      const cp = this.raceCheckpoints[S.missionState.checkpoints];
+      if (cp && Math.hypot(p.x - cp.x, p.z - cp.z) < 14) {
+        S.missionState.checkpoints++;
+        AudioSys.pickup();
+        if (S.missionState.checkpoints >= this.raceCheckpoints.length) this.advanceStep();
+        else this.showMarker();
+      }
+    } else if (step.kind === 'escort') {
+      const truck = this.escortTruck;
+      if (truck) {
+        const td = Math.hypot(truck.pos.x - step.x, truck.pos.z - step.z);
+        if (td < 20) { this.advanceStep(); return; }
+        // Truck drives toward the destination on the grid.
+        const dx = step.x - truck.pos.x, dz = step.z - truck.pos.z;
+        const want = Math.atan2(dx, dz);
+        const diff = ((want - truck.heading + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+        const steer = Math.max(-1, Math.min(1, diff * 1.4));
+        const near = Math.hypot(p.x - truck.pos.x, p.z - truck.pos.z);
+        const throttle = near < 45 ? 0.7 : 0.25;
+        const { driveCar } = { driveCar: api.driveCar };
+        driveCar(truck, throttle, steer, dt, api.colliders());
+      }
+    } else if (step.kind === 'fly') {
+      if (api.inHeli()) this.advanceStep();
+    } else if (step.kind === 'smash') {
+      if (S.missionState.smashed >= step.count) this.advanceStep();
+    }
+  },
+
+  // Enemies chase and shoot the player.
+  updateEnemies(dt, api, colliders) {
+    const p = api.playerPos();
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      const dx = p.x - e.pos.x, dz = p.z - e.pos.z;
+      const d = Math.hypot(dx, dz);
+      if (d > 160) { e.dead = true; this.scene.remove(e.mesh); continue; }
+      const want = Math.atan2(dx, dz);
+      e.heading += Math.max(-dt * 5, Math.min(dt * 5, ((want - e.heading + Math.PI * 3) % (Math.PI * 2)) - Math.PI));
+      const speed = d > 14 ? 4.4 : 0;
+      e.pos.x += Math.sin(e.heading) * speed * dt;
+      e.pos.z += Math.cos(e.heading) * speed * dt;
+      e.walkPhase += dt * 10;
+      e.mesh.userData.legL.rotation.x = Math.sin(e.walkPhase) * 0.5;
+      e.mesh.userData.legR.rotation.x = -Math.sin(e.walkPhase) * 0.5;
+      e.mesh.position.set(e.pos.x, 0, e.pos.z);
+      e.mesh.rotation.y = e.heading;
+      // Shoot when close enough.
+      e.shootTimer = (e.shootTimer ?? 1) - dt;
+      if (d < 34 && d > 6 && e.shootTimer <= 0) {
+        e.shootTimer = 0.9 + Math.random() * 0.8;
+        api.enemyShot(e, d);
       }
     }
-
-    // Street races.
-    if (this.race) {
-      this.race.timer -= dt;
-      const pt = this.race.def.points[this.race.index];
-      const d = Math.hypot(pt[0] - pos.x, pt[1] - pos.z);
-      if (d < 12) {
-        this.race.index += 1;
-        ctx.audio.pickup();
-        if (this.race.index >= this.race.def.points.length) {
-          const bonus = Math.max(300, Math.round(1200 - (this.race.def.par - this.race.timer) * 8));
-          ctx.addCash(bonus);
-          ctx.addRespect(10);
-          ctx.hud.banner('RACE WON', `${this.race.def.name} — $${bonus}`);
-          ctx.audio.missionDone();
-          this.race = null;
-          this.beacon.visible = false;
-        } else {
-          this.updateBeacon(ctx);
-        }
-      } else if (this.race.timer <= 0) {
-        ctx.hud.toast('Race lost — out of time');
-        this.race = null;
-        this.beacon.visible = false;
-      }
-    }
-
-    // Rampage.
-    if (this.rampage) {
-      this.rampage.timer -= dt;
-      if (this.rampage.left <= 0) {
-        ctx.addCash(1500);
-        ctx.addRespect(12);
-        ctx.hud.banner('RAMPAGE COMPLETE', '$1,500');
-        ctx.audio.missionDone();
-        this.rampage = null;
-      } else if (this.rampage.timer <= 0) {
-        ctx.hud.toast('Rampage over');
-        this.rampage = null;
-      }
-    }
-
-    // Story mission steps.
-    if (!this.active) return;
-    const a = this.active;
-    const st = this.currentStep();
-    if (!st) return;
-    if (st.timer) {
-      a.timer -= dt;
-      if (a.timer <= 0) { this.fail(ctx, 'Out of time'); return; }
-    }
-    if (st.type === 'goto' || st.type === 'deliver') {
-      if (st.inCar && !ctx.playerCar) return;
-      const d = Math.hypot(st.x - pos.x, st.z - pos.z);
-      if (d < st.r) this.completeStep(ctx);
-    } else if (st.type === 'steal') {
-      if (ctx.playerCar && ctx.playerCar.kind === st.kind) this.completeStep(ctx);
-    } else if (st.type === 'kill') {
-      a.kills = st.count - ctx.enemies.countAlive();
-      if (ctx.enemies.countAlive() === 0 && a.spawned) this.completeStep(ctx);
-    } else if (st.type === 'collect') {
-      for (let i = this.pickups.length - 1; i >= 0; i -= 1) {
-        const m = this.pickups[i];
-        if (Math.hypot(m.position.x - pos.x, m.position.z - pos.z) < 3) {
-          this.scene.remove(m);
-          this.pickups.splice(i, 1);
-          a.collected += 1;
-          ctx.audio.pickup();
-        }
-      }
-      if (a.collected >= st.spots.length) this.completeStep(ctx);
-    } else if (st.type === 'race') {
-      const pt = st.points[a.raceIndex];
-      const d = Math.hypot(pt[0] - pos.x, pt[1] - pos.z);
-      if (d < 12) {
-        a.raceIndex += 1;
-        ctx.audio.pickup();
-        if (a.raceIndex >= st.points.length) this.completeStep(ctx);
-        else this.updateBeacon(ctx);
-      }
-    } else if (st.type === 'survive') {
-      if (!a.timer) a.timer = st.seconds;
-      a.timer -= dt;
-      if (a.timer <= 0) {
-        ctx.police.setWanted(0);
-        this.completeStep(ctx);
-      }
-    }
-    // Beacon pulse.
-    if (this.beacon.visible) {
-      const s = 1 + Math.sin(performance.now() * 0.004) * 0.12;
-      this.beacon.scale.set(s, 1, s);
-    }
-  }
-
-  startTaxi(ctx) {
-    if (this.taxi || !ctx.playerCar) return false;
-    const spots = [[-200, -100], [200, -200], [0, 300], [-350, 50], [350, -250], [100, 0]];
-    const [x, z] = spots[Math.floor(Math.random() * spots.length)];
-    this.taxi = { x, z, timer: 80, fare: 80 + Math.floor(Math.random() * 140) };
-    this.beacon.visible = true;
-    this.beacon.position.set(x, 0, z);
-    ctx.hud.toast('Taxi fare — passenger is waiting');
-    ctx.audio.phone();
-    return true;
-  }
-
-  startRace(ctx, index) {
-    const def = RACES[index % RACES.length];
-    this.race = { def, index: 0, timer: def.par };
-    this.beacon.visible = true;
-    this.beacon.position.set(def.points[0][0], 0, def.points[0][1]);
-    ctx.hud.banner(def.name, 'Reach every gate before time runs out');
-    return true;
-  }
-
-  startRampage(ctx) {
-    this.rampage = { timer: 90, left: 8 };
-    ctx.police.setWanted(2);
-    ctx.hud.banner('RAMPAGE', 'Wreck 8 vehicles in 90 seconds');
-    return true;
-  }
-
-  onVehicleWrecked() {
-    if (this.rampage) this.rampage.left -= 1;
-  }
-}
+    this.enemies = this.enemies.filter((e) => !e.dead);
+  },
+};
