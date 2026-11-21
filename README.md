@@ -1,42 +1,61 @@
-# VELAMAR — Open-World Crime
+# VELAMAR — Open World Crime Game
 
-[![make.fun · gta6-01](https://make.fun/badge/gta6-01.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
-[![rank](https://make.fun/badge/gta6-01/Wedspierre/gta6-01-entry/rank.svg)](https://make.fun/bounty/gta6-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
-[![reward](https://make.fun/badge/gta6-01/Wedspierre/gta6-01-entry/reward.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
+A complete, original open-world crime game in the browser, built for the
+make.fun gta6-01 bounty. No Rockstar assets, names, characters or map: the
+city of Velamar Bay, its people and its story are all original.
 
-An original open-world crime game in the spirit of GTA 6, built for the
-make.fun gta6-01 bounty. Everything is original: the city, the crew, the
-story, the cars, the music.
+## Play
 
-**The city:** Velamar — a sun-soaked coastal city with a grid of streets,
-pastel downtown towers, beachfront hotels, a pier, a ferris wheel, a marina
-and an industrial dockyard. Drive it, walk it, steal it.
+Serve `game/` with any static server and open `game/index.html`:
 
-**The story:** Dario Voss comes home after three years away. Fourteen story
-missions across three acts — carjacking, taxi fares, dock heists, street
-races, a bank vault job and a five-star finale on the pier — with Selma
-Reyes, Mara Quinn and Tico Alvarez against Viktor Kross, the Harbormaster.
+```sh
+node serve.ts
+# open http://localhost:8080
+```
 
-**The systems:**
+WASD move/drive, mouse drag orbits the camera, Shift sprint, Space jump,
+E enter car / interact, F carjack, Q weapon wheel, 1–4 weapons, click to
+shoot, R radio station, T Velamar Dispatch jobs, G store a car in the
+garage, Esc pause, F5 quick save.
 
-- 5-star wanted system — VCPD cruisers chase and ram, foot cops on foot,
-  roadblocks at 3+, spike strips at 4+, Air One helicopter with a searchlight
-- Weapon wheel — fists, pistol, SMG, scattergun, rifle; buy guns and armor
-  at Ironworks Arms
-- Carjacking, garage upgrades (NOS, armor plating), owned cars
-- Respect ranks from Street Punk to King of Velamar
-- 4 procedural radio stations, synthesized live with WebAudio
-- Side work — taxi fares, 3 street-race circuits, 5 stunt jumps, 20 hidden
-  packages, rampage
-- Saves at the safehouse, day/night clock, live minimap
+## What is in the game
 
-**Controls:** WASD move/drive · Shift sprint/NOS · Space handbrake/jump ·
-E enter car/interact · Q weapon wheel · 1–5 weapons · R radio · T taxi ·
-P missions/phone · M mute · Esc pause · mouse aim, click to shoot.
+- A 1200×1200 procedural city: nine districts, beach, harbor with cranes,
+  the Docks, Civic Plaza, a helipad and a garage
+- Traffic on the road grid and pedestrians on the sidewalks who flee danger
+- Cars to steal and drive (7 models), with arcade handling
+- Wanted level (5 stars), police pursuit cars, roadblocks and a police
+  helicopter with a spotlight
+- Combat with fists, pistol, SMG and shotgun; enemies who chase and shoot
+- **Velamar Dispatch**: an explicit dispatch system — paid taxi, courier,
+  getaway, vigilante and tow jobs from a job board (T), plus police radio
+- 14 story missions with a full arc: Welcome Back, Wheels, First Fare,
+  The Drop, Mara, Street Kings, Harbor Lights, Heat Wave, Protect the
+  Fixer, The Setup, Air One, Roadblock Run, The Vault, King of Velamar
+- HUD with minimap, wanted stars, health/armor, cash, respect, speedometer,
+  weapon wheel and three procedural radio stations (WebAudio, no files)
+- Save/load in the browser (localStorage), start screen and pause menu
+- 4 screenshots, all real renders of the game itself (`?shot=` modes)
 
-**Play it:** `node serve.ts`, then open http://localhost:8080. No network
-requests, no build step — static files under `game/`, three.js vendored.
+## Layout
 
-**Screenshots:** staged with `?shot=cover|drive|mission|city` (see `shots.json`).
+- `game/index.html` — page, HUD DOM, import map for three.js
+- `game/src/state.js` — shared state, mission and weapon data
+- `game/src/city.js` — procedural city, collisions
+- `game/src/vehicles.js` — cars, traffic AI, helicopter
+- `game/src/people.js` — pedestrians and the player character
+- `game/src/police.js` — wanted level, pursuit, roadblocks
+- `game/src/dispatch.js` — Velamar Dispatch jobs and radio feed
+- `game/src/missions.js` — the 14-mission campaign engine
+- `game/src/hud.js` — HUD, minimap, weapon wheel, dispatch panel
+- `game/src/audio.js` — synthesized sound effects and radio
+- `game/src/save.js` — localStorage save/load
+- `game/src/shots.js` — screenshot staging modes
+- `game/src/main.js` — game loop and glue
+- `game/vendor/three/three.module.min.js` — vendored three.js (MIT)
+- `main.ts` — entry program, hands game/ + screenshots/ to the grader
+- `serve.ts` — tiny static server for local play
 
-**Entry version:** VELAMAR v2.
+## License
+
+MIT — see LICENSE.
