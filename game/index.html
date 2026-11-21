@@ -3,103 +3,145 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Velamar — Open-World Crime</title>
-<link rel="icon" href="data:,">
+<title>VELAMAR — Open World Crime Game</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #0c141c;
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0e1a;
     font-family: 'Segoe UI', system-ui, sans-serif; color: #fff; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
   .hidden { display: none !important; }
-  .hud-top-left { position: absolute; top: 14px; left: 16px; }
-  .stars { font-size: 30px; letter-spacing: 4px; color: #666; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
-  .stars.w1, .stars.w2 { color: #ffd23a; }
-  .stars.w3, .stars.w4, .stars.w5 { color: #ff5a3a; animation: blink .7s infinite alternate; }
-  @keyframes blink { from { opacity: 1; } to { opacity: .55; } }
-  .rank { font-size: 13px; letter-spacing: 1px; opacity: .9; text-shadow: 0 1px 4px #000; margin-top: 2px; }
-  .hud-top-right { position: absolute; top: 14px; right: 16px; text-align: right; }
-  .cash { font-size: 30px; font-weight: 800; color: #7ddb8a; text-shadow: 0 2px 6px rgba(0,0,0,.8); }
-  .clock, .district { font-size: 14px; opacity: .92; text-shadow: 0 1px 4px #000; }
-  .objective { position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-    background: rgba(8,14,20,.72); border-left: 4px solid #ffd23a; padding: 9px 16px;
-    border-radius: 4px; max-width: 560px; }
-  .objective-text { font-size: 16px; font-weight: 700; }
-  .objective-dist { font-size: 12px; opacity: .8; }
-  .hud-bottom-left { position: absolute; left: 16px; bottom: 16px; }
-  .minimap { border: 2px solid rgba(255,255,255,.55); border-radius: 50%;
-    box-shadow: 0 4px 18px rgba(0,0,0,.6); background: #0c141c; }
-  .hud-bottom-right { position: absolute; right: 16px; bottom: 16px; text-align: right; }
-  .bars { margin-bottom: 8px; }
-  .bar { width: 230px; height: 12px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.4);
-    border-radius: 3px; margin-top: 4px; overflow: hidden; }
-  .bar .fill { height: 100%; transition: width .15s; }
-  .bar.health .fill { background: linear-gradient(90deg, #e8e8e8, #ffffff); }
-  .bar.armor .fill { background: linear-gradient(90deg, #4a8cff, #7db4ff); }
-  .weapon { font-size: 17px; font-weight: 700; text-shadow: 0 1px 4px #000; }
-  .speed { font-size: 26px; font-weight: 800; text-shadow: 0 2px 6px #000; }
-  .radio { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
-    font-size: 14px; background: rgba(8,14,20,.65); padding: 6px 14px; border-radius: 20px; }
-  .hint { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%);
-    font-size: 12px; opacity: .75; text-shadow: 0 1px 3px #000; white-space: nowrap; }
-  .crosshair { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
-    font-size: 26px; font-weight: 300; color: rgba(255,255,255,.9); text-shadow: 0 0 4px #000; display: none; }
-  .center-msg { position: absolute; left: 50%; top: 62%; transform: translateX(-50%);
-    font-size: 16px; font-weight: 600; background: rgba(8,14,20,.7); padding: 8px 16px;
-    border-radius: 4px; opacity: 0; transition: opacity .2s; }
-  .center-msg.show { opacity: 1; }
-  .phone { position: absolute; right: 16px; top: 120px; width: 260px; background: rgba(10,16,24,.92);
-    border: 1px solid #ffd23a; border-radius: 10px; padding: 12px 14px; opacity: 0;
-    transform: translateX(20px); transition: opacity .25s, transform .25s; }
-  .phone.show { opacity: 1; transform: translateX(0); }
-  .phone-name { font-weight: 800; color: #ffd23a; font-size: 14px; margin-bottom: 4px; }
-  .phone-text { font-size: 14px; line-height: 1.45; }
-  .toasts { position: absolute; left: 16px; bottom: 250px; }
-  .toast { background: rgba(8,14,20,.8); border-left: 3px solid #39d0c2; padding: 7px 12px;
-    margin-top: 6px; border-radius: 3px; font-size: 14px; animation: toastin .2s; }
-  @keyframes toastin { from { transform: translateX(-12px); opacity: 0; } }
-  .banner { position: absolute; left: 50%; top: 34%; transform: translateX(-50%) scale(.96);
-    text-align: center; opacity: 0; transition: opacity .3s, transform .3s; }
-  .banner.show { opacity: 1; transform: translateX(-50%) scale(1); }
-  .banner-title { font-size: 52px; font-weight: 900; letter-spacing: 3px; color: #ffd23a;
-    text-shadow: 0 3px 0 #7a2a1a, 0 6px 22px rgba(0,0,0,.8); }
-  .banner-sub { font-size: 18px; text-shadow: 0 2px 6px #000; margin-top: 4px; }
-  .wheel { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; }
-  .wheel.show { opacity: 1; }
-  .wheel-slot { position: absolute; left: -90px; top: -26px; width: 180px; text-align: center;
-    background: rgba(8,14,20,.85); border: 1px solid rgba(255,255,255,.35); border-radius: 8px;
-    padding: 8px 6px; font-size: 14px; }
-  .wheel-slot.current { border-color: #ffd23a; background: rgba(60,44,8,.92); }
-  .wheel-slot.locked { opacity: .45; }
-  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
-    justify-content: center; background: linear-gradient(180deg, rgba(6,12,20,.55), rgba(6,12,20,.88));
-    pointer-events: auto; text-align: center; padding: 20px; }
-  .game-title { font-size: 96px; font-weight: 900; letter-spacing: 12px; color: #ffd23a;
-    text-shadow: 0 4px 0 #7a2a1a, 0 10px 40px rgba(0,0,0,.9); line-height: 1; }
-  .game-sub { font-size: 20px; margin-top: 10px; text-shadow: 0 2px 6px #000; }
-  .game-tag { font-size: 13px; opacity: .85; max-width: 640px; margin-top: 14px; line-height: 1.6; }
-  .btn-row { display: flex; gap: 12px; margin-top: 26px; }
-  .btn { pointer-events: auto; cursor: pointer; background: rgba(255,255,255,.12); color: #fff;
-    border: 1px solid rgba(255,255,255,.5); border-radius: 6px; padding: 12px 26px;
-    font-size: 16px; font-weight: 700; letter-spacing: 1px; }
-  .btn:hover { background: rgba(255,255,255,.25); }
-  .btn.primary { background: #ffd23a; color: #1a1405; border-color: #ffd23a; }
-  .btn.small { padding: 6px 14px; font-size: 13px; }
-  .title-foot { font-size: 12px; opacity: .7; margin-top: 26px; }
-  .screen-title { font-size: 34px; font-weight: 900; letter-spacing: 3px; color: #ffd23a; margin-bottom: 18px; }
-  .shop-list { width: min(680px, 92vw); max-height: 52vh; overflow-y: auto; text-align: left; }
-  .shop-row { display: flex; justify-content: space-between; align-items: center; gap: 14px;
-    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); border-radius: 6px;
-    padding: 10px 14px; margin-bottom: 8px; font-size: 14px; }
-  .shop-row b { color: #ffd23a; }
-  .shop-row i { opacity: .7; font-style: normal; font-size: 12px; }
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #wanted { position: absolute; top: 14px; right: 18px; font-size: 30px; letter-spacing: 4px;
+    color: #ffd23e; text-shadow: 0 0 8px #000, 0 2px 2px #000; }
+  #wanted .dim { color: rgba(255,255,255,.22); }
+  #stats { position: absolute; top: 14px; right: 18px; margin-top: 40px; text-align: right;
+    font-weight: 700; font-size: 17px; text-shadow: 0 2px 3px #000; line-height: 1.5; }
+  #stats .cash { color: #7dff9a; } #stats .respect { color: #ff9de2; }
+  #missionBox { position: absolute; top: 14px; left: 18px; max-width: 340px;
+    background: rgba(8,10,24,.72); border-left: 4px solid #ffb400; padding: 10px 14px;
+    border-radius: 0 8px 8px 0; font-size: 14px; line-height: 1.45; }
+  #missionBox .mTitle { font-weight: 800; color: #ffb400; font-size: 15px; letter-spacing: .5px; }
+  #missionBox .mObj { color: #e8ecff; margin-top: 3px; }
+  #missionBox .mHint { color: #9aa3c7; font-size: 12px; margin-top: 4px; }
+  #dispatchFeed { position: absolute; left: 18px; bottom: 190px; width: 330px; font-size: 13px;
+    line-height: 1.5; text-shadow: 0 1px 2px #000; }
+  #dispatchFeed .line { background: rgba(8,10,24,.6); border-radius: 6px; padding: 4px 9px;
+    margin-top: 4px; } #dispatchFeed .line b { color: #6fd3ff; }
+  #minimapWrap { position: absolute; right: 18px; bottom: 18px; width: 210px; height: 210px;
+    border: 3px solid rgba(255,255,255,.75); border-radius: 50%; overflow: hidden;
+    box-shadow: 0 0 0 4px rgba(0,0,0,.45), 0 4px 18px rgba(0,0,0,.6); background: #0d1526; }
+  #minimap { width: 100%; height: 100%; display: block; }
+  #speedo { position: absolute; right: 248px; bottom: 26px; text-align: right;
+    text-shadow: 0 2px 3px #000; }
+  #speedo .spd { font-size: 34px; font-weight: 800; } #speedo .unit { font-size: 13px; color: #c8cdea; }
+  #speedo .radio { font-size: 13px; color: #6fd3ff; font-weight: 700; margin-top: 2px; }
+  #healthBar { position: absolute; left: 18px; bottom: 26px; width: 220px; }
+  #healthBar .lbl { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #c8cdea;
+    text-shadow: 0 1px 2px #000; }
+  #healthFillWrap { height: 12px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.5);
+    border-radius: 6px; margin-top: 3px; overflow: hidden; }
+  #healthFill { height: 100%; width: 100%; background: linear-gradient(90deg,#37d67a,#7dff9a); }
+  #armorFill { height: 5px; width: 0%; background: #6fd3ff; margin-top: 3px; border-radius: 3px; }
+  #weaponSlot { position: absolute; left: 18px; bottom: 84px; font-size: 14px; font-weight: 700;
+    text-shadow: 0 1px 2px #000; color: #ffe9a8; }
+  #toast { position: absolute; left: 50%; top: 22%; transform: translateX(-50%);
+    font-size: 30px; font-weight: 900; letter-spacing: 2px; color: #fff;
+    text-shadow: 0 0 14px #ffb400, 0 3px 4px #000; text-align: center; }
+  #toast small { display: block; font-size: 15px; font-weight: 600; color: #dfe4ff; letter-spacing: 1px; }
+  #interact { position: absolute; left: 50%; bottom: 30%; transform: translateX(-50%);
+    background: rgba(8,10,24,.8); border: 1px solid #ffb400; padding: 7px 16px; border-radius: 20px;
+    font-size: 14px; font-weight: 700; }
+  #wheel { position: absolute; left: 50%; top: 50%; width: 340px; height: 340px;
+    transform: translate(-50%,-50%); pointer-events: none; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px;
+    transform: translate(-50%,-50%); font-size: 22px; color: #fff; text-shadow: 0 0 4px #000;
+    text-align: center; line-height: 22px; }
+  #centerMsg { position: absolute; left: 50%; top: 38%; transform: translateX(-50%);
+    font-size: 44px; font-weight: 900; letter-spacing: 6px; text-shadow: 0 0 22px #ff2d55, 0 4px 6px #000; }
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center;
+    justify-content: center; flex-direction: column; text-align: center;
+    background: radial-gradient(ellipse at 50% 30%, rgba(255,120,40,.28), rgba(5,6,18,.88) 70%); }
+  .screen h1 { font-size: 84px; margin: 0; letter-spacing: 10px; font-weight: 900;
+    background: linear-gradient(180deg,#ffe27a,#ff7a2f 55%,#ff2d55); -webkit-background-clip: text;
+    background-clip: text; color: transparent; text-shadow: 0 6px 30px rgba(255,90,40,.35); }
+  .screen h2 { font-weight: 400; letter-spacing: 6px; color: #c8cdea; margin: 6px 0 26px; font-size: 17px; }
+  .screen .tag { color: #ffb400; font-weight: 700; letter-spacing: 3px; font-size: 13px; margin-bottom: 8px; }
+  .btn { pointer-events: auto; cursor: pointer; display: block; width: 300px; margin: 8px auto;
+    padding: 13px 0; font-size: 17px; font-weight: 800; letter-spacing: 2px; color: #fff;
+    background: linear-gradient(180deg,#ff8a2a,#e85d04); border: 1px solid #ffd23e; border-radius: 8px; }
+  .btn:hover { filter: brightness(1.15); }
+  .btn.ghost { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.4); }
+  .controls { margin-top: 26px; font-size: 13px; line-height: 1.9; color: #aab1d6; }
+  .controls b { color: #fff; background: rgba(255,255,255,.14); border-radius: 4px; padding: 1px 7px; }
+  #dispatchPanel { position: fixed; inset: 0; z-index: 12; display: flex; align-items: center;
+    justify-content: center; background: rgba(4,5,14,.72); }
+  #dispatchPanel .card { width: 640px; max-width: 92vw; background: #10142a; border: 2px solid #6fd3ff;
+    border-radius: 12px; padding: 20px 24px; text-align: left; }
+  #dispatchPanel h3 { margin: 0 0 4px; color: #6fd3ff; letter-spacing: 3px; font-size: 20px; }
+  #dispatchPanel .sub { color: #9aa3c7; font-size: 13px; margin-bottom: 12px; }
+  .job { border: 1px solid rgba(255,255,255,.2); border-radius: 8px; padding: 10px 12px; margin: 8px 0;
+    cursor: pointer; pointer-events: auto; }
+  .job:hover { border-color: #ffb400; background: rgba(255,180,0,.08); }
+  .job .jt { font-weight: 800; color: #ffe9a8; } .job .jp { float: right; color: #7dff9a; font-weight: 800; }
+  .job .jd { font-size: 13px; color: #c8cdea; margin-top: 3px; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 </style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="hud" class="hidden">
+  <div id="missionBox"><div class="mTitle" id="mTitle">VELAMAR</div>
+    <div class="mObj" id="mObj">Welcome to Velamar Bay.</div>
+    <div class="mHint" id="mHint"></div></div>
+  <div id="wanted"></div>
+  <div id="stats"><span class="cash" id="cash">$0</span><br><span class="respect" id="respect">RESPECT 0</span></div>
+  <div id="dispatchFeed"></div>
+  <div id="healthBar"><div class="lbl">HEALTH</div><div id="healthFillWrap"><div id="healthFill"></div></div><div id="armorFill"></div></div>
+  <div id="weaponSlot"></div>
+  <div id="speedo" class="hidden"><div><span class="spd" id="spd">0</span> <span class="unit">MPH</span></div><div class="radio" id="radioName"></div></div>
+  <div id="minimapWrap"><canvas id="minimap" width="210" height="210"></canvas></div>
+  <div id="toast" class="hidden"></div>
+  <div id="interact" class="hidden"></div>
+  <div id="centerMsg" class="hidden"></div>
+  <div id="crosshair" class="hidden">+</div>
+  <canvas id="wheel" class="hidden" width="340" height="340"></canvas>
+</div>
+
+<div id="menu" class="screen">
+  <div class="tag">A SUN-SOAKED OPEN WORLD &bull; ORIGINAL CITY &bull; NO ROCKSTAR ASSETS</div>
+  <h1>VELAMAR</h1>
+  <h2>VELAMAR BAY &mdash; COME BACK AND TAKE THE CITY</h2>
+  <button class="btn" id="btnNew">NEW GAME</button>
+  <button class="btn ghost hidden" id="btnContinue">CONTINUE</button>
+  <button class="btn ghost" id="btnHow">HOW TO PLAY</button>
+  <div class="controls" id="howBox" style="display:none">
+    <b>W A S D</b> move / drive &nbsp; <b>Mouse drag</b> camera &nbsp; <b>Shift</b> sprint &nbsp; <b>Space</b> jump<br>
+    <b>E</b> enter car / interact &nbsp; <b>F</b> carjack &nbsp; <b>Q</b> weapon wheel &nbsp; <b>1 2 3</b> weapons<br>
+    <b>Click</b> shoot &nbsp; <b>R</b> radio station &nbsp; <b>T</b> Velamar Dispatch jobs &nbsp; <b>G</b> store car in garage<br>
+    <b>Esc</b> pause &nbsp; <b>F5</b> quick save &nbsp; Lose the cops to drop your wanted level.
+  </div>
+  <div class="controls" id="menuHint">14 story missions &bull; Dispatch jobs &bull; Helicopters &bull; Roadblocks &bull; Garage &bull; Radio</div>
+</div>
+
+<div id="pauseMenu" class="screen hidden">
+  <h1 style="font-size:52px">PAUSED</h1>
+  <button class="btn" id="btnResume">RESUME</button>
+  <button class="btn ghost" id="btnSave">SAVE GAME</button>
+  <button class="btn ghost" id="btnQuit">QUIT TO MENU</button>
+</div>
+
+<div id="dispatchPanel" class="hidden">
+  <div class="card">
+    <h3>VELAMAR DISPATCH</h3>
+    <div class="sub">Central dispatch for drivers, couriers and fixers. Take a job, the city pays. Police listen on this channel too — loud jobs raise heat.</div>
+    <div id="jobList"></div>
+    <div class="sub" style="margin-top:10px">Press <b>T</b> or <b>Esc</b> to close. Accepted jobs appear in your mission tracker.</div>
+  </div>
+</div>
+
+<p id="status" role="status" aria-live="polite">loading</p>
 <script type="importmap">
 { "imports": { "three": "./vendor/three/three.module.min.js" } }
 </script>
-</head>
-<body>
-<canvas id="game" aria-label="Velamar: drive, fight and take the city"></canvas>
-<div id="hud"></div>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
